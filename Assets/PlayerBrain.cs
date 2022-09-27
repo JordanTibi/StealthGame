@@ -5,30 +5,56 @@ using UnityEngine.InputSystem;
 
 public class PlayerBrain : MonoBehaviour
 {
-    [SerializeField] InputActionReference _move;
-    [SerializeField] InputActionReference _sprint;
-    [SerializeField] InputActionReference _attack;
-    [SerializeField] Rigidbody2D _rb;
-    [SerializeField] Animator _animator;
-    //[SerializeField] AttackHitBox _hitbox;
+    [Header("Inputs")]
+    [SerializeField] InputActionReference _moveInput;
+    [SerializeField] InputActionReference _sprintInput;
+    [SerializeField] InputActionReference _JumpImput;
 
+    [Header("Actions")]
+    [SerializeField] EntityMovement _movement;
+    [SerializeField] Rigidbody _rb;
+    [SerializeField] Animator _animator;
     [SerializeField] float _speed;
 
     Vector3 _direction;
     Vector3 _aimDirection;
     bool _isRunning;
     bool _isAttack;
+    bool _isMoving;
 
     private void Start()
     {
-        _move.action.started += StartMove;
-        _move.action.performed += UpdateMove;
-        _move.action.canceled += StopMove;
+        _moveInput.action.started += StartMove;
+        _moveInput.action.performed += UpdateMove;
+        _moveInput.action.canceled += MoveStop;
 
-        _sprint.action.started += StartSprint;
-        _sprint.action.canceled += StopSprint;
+        _sprintInput.action.started += StartSprint;
+        _sprintInput.action.canceled += StopSprint;
 
-        _attack.action.started += StartAttack;
+    }
+    private void OnDestroy()
+    {
+        _moveInput.action.started -= StartMove;
+        _moveInput.action.performed -= UpdateMove;
+        _moveInput.action.canceled -= MoveStop;
+    }
+
+    private void StartMove(InputAction.CallbackContext obj)
+    {
+        var keyboard = obj.ReadValue<Vector2>();
+        _movement.Direction = new Vector3(keyboard.x, 0, keyboard.y);
+    }
+
+    private void UpdateMove(InputAction.CallbackContext obj)
+    {
+        var keyboard = obj.ReadValue<Vector2>();
+        _movement.Direction = new Vector3(keyboard.x, 0, keyboard.y);
+    }
+
+    private void MoveStop(InputAction.CallbackContext obj)
+    {
+        _movement.Direction = Vector3.zero;
+
     }
 
     private void StopSprint(InputAction.CallbackContext obj)
@@ -41,66 +67,5 @@ public class PlayerBrain : MonoBehaviour
         _isRunning = true;
     }
 
-    private void FixedUpdate()
-    {
-        //Debug.Log($"{_direction}");
-        _animator.SetBool("IsMoving", _direction.magnitude > 0.1f);
-        _animator.SetBool("IsRunning", _isRunning);
-
-
-        // Move
-        if (_isRunning)
-        {
-            _rb.MovePosition(_rb.transform.position + (_direction * Time.fixedDeltaTime * _speed * 2));
-            _animator.SetFloat("Speed", 10);
-        }
-        else
-        {
-            _rb.MovePosition(_rb.transform.position + (_direction * Time.fixedDeltaTime * _speed));
-            if (_direction.magnitude < 0.05)
-            {
-                _animator.SetFloat("Speed", 0);
-            }
-            else
-            {
-                _animator.SetFloat("Speed", 5);
-            }
-        }
-
-        // Rotation
-        if (_direction.magnitude < 0.01f)
-        {
-            // Nothing
-        }
-        else if (_direction.x < 0)
-        {
-            _rb.transform.rotation = Quaternion.Euler(0, 180, 0);
-        }
-        else
-        {
-            _rb.transform.rotation = Quaternion.Euler(0, 0, 0);
-        }
-
-    }
-
-    private void StartMove(InputAction.CallbackContext obj)
-    {
-        _direction = obj.ReadValue<Vector2>();
-        _aimDirection = _direction;
-    }
-    private void UpdateMove(InputAction.CallbackContext obj)
-    {
-        _direction = obj.ReadValue<Vector2>();
-        _aimDirection = _direction;
-    }
-    private void StopMove(InputAction.CallbackContext obj)
-    {
-        _direction = Vector3.zero;
-    }
-
-    private void StartAttack(InputAction.CallbackContext obj)
-    {
-        _animator.SetTrigger("isAttack");
-        //_hitbox.AttackAllCharacters();
-    }
+    
 }

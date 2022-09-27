@@ -1,85 +1,76 @@
+
+using NaughtyAttributes;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.Playables;
+using UnityEngine.Events;
+
 
 public class EntityMovement : MonoBehaviour
 {
-    [SerializeField] Animator _animator;
-    [SerializeField] Rigidbody2D _rb;
-
+    [SerializeField] bool _followCameraOrientation;
+    [SerializeField, ShowIf(nameof(_followCameraOrientation))] Camera _camera;
+    [SerializeField] CharacterController _controller;
     [SerializeField] float _speed;
-    [SerializeField] float _speedRun;
 
-    Vector3 _direction;
-    bool _isRunning;
+    Vector3 _directionFromBrain;
+    Vector3 _calculatedDirection;
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="direction">La direction souhaité</param>
-    public void SetDirection(Vector2 direction)
+    public event UnityAction<Vector3> OnMove;
+
+    public Vector3 Direction
     {
-        _direction = direction.normalized;
+        get => _directionFromBrain;
+        set => _directionFromBrain = (value).normalized;
     }
 
-
-
-    public void SetRunning(bool state)
+    void Update()
     {
-        _isRunning = state;
-    }
-
-    void FixedUpdate()
-    {
-        // Calcul la direction du déplacement
-        var calculatedDirection = (_direction * _speed * Time.fixedDeltaTime);
-        if (_isRunning)
+        // Move character controller
+        if (_directionFromBrain.magnitude > 0.01f)
         {
-            calculatedDirection *= _speedRun;
-        }
-
-        // Animator
-        if (calculatedDirection.magnitude > 0.01f)      // Ya un deplacement en cours
-        {
-            if (_isRunning)
+            if (_followCameraOrientation)   // Camera based algo
             {
-                _animator.SetFloat("Speed", 10);
+                var tmpDirection = (_directionFromBrain * _speed * Time.deltaTime);
+                var forwardForCamera = _camera.transform.TransformDirection(tmpDirection);
+                _calculatedDirection.x = forwardForCamera.x;
+                _calculatedDirection.z = forwardForCamera.z;
             }
             else
             {
-                _animator.SetFloat("Speed", 5);
+                // Enemy algo
             }
         }
-        else  // On ne bouge pas
+        else // Keep only Y axis for gravity acceleration
         {
-            _animator.SetFloat("Speed", 0);
+            _calculatedDirection.x = 0;
+            _calculatedDirection.z = 0;
         }
 
-        if (calculatedDirection.magnitude > 0.01f)
+        // Apply gravity
+        if (_controller.isGrounded)
         {
-            if (calculatedDirection.x > 0)
-            {
-                _rb.transform.rotation = Quaternion.Euler(0, 0, 0);
-            }
-            else
-            {
-                _rb.transform.rotation = Quaternion.Euler(0, 180, 0);
-            }
+            _calculatedDirection.y = 0;
+        }
+        else
+        {
+            _calculatedDirection.y += (Physics.gravity.y / 3) * Time.deltaTime;
         }
 
-        _rb.MovePosition(transform.position + calculatedDirection);
+        _controller.Move(_calculatedDirection);
+        OnMove?.Invoke(_calculatedDirection);
+
+        // Look At
+        if (_followCameraOrientation)   // Follow camera orientation
+        {
+            var lookAtDirection = new Vector3(_camera.transform.forward.x, 0, _camera.transform.forward.z);
+            _controller.transform.LookAt(_controller.transform.position + lookAtDirection);
+        }
+        else  // Follow direction applied
+        {
+
+        }
 
     }
-
-    #region EDITOR
-#if UNITY_EDITOR
-    private void Reset()
-    {
-        _speed = 5f;
-        _speedRun = 1f;
-    }
-#endif
-    #endregion
 }
